@@ -1,0 +1,77 @@
+NAME
+    Apache::XPointer::RDQL - base class for addressing XML fragments using
+    the RDF Data Query Language.
+
+SYNOPSIS
+     <Directory /foo/bar>
+
+      <FilesMatch "\.rdf$">
+       SetHandler   perl-script
+       PerlHandler  Apache::XPointer::RDQL::RDFStore
+
+       PerlSetVar   XPointerSendRangeAs  "XML"
+      </FilesMatch>
+
+     </Directory>
+
+     #
+
+     my $ua  = LWP::UserAgent->new();
+     my $req = HTTP::Request->new(GET => "http://example.com/foo/bar/baz.rdf");
+
+     $req->header("Range" => qq(SELECT ?title, ?link
+                                WHERE
+                                (?item, <rdf:type>, <rss:item>),
+                                (?item, <rss::title>, ?title),
+                                (?item, <rss::link>, ?link)
+                                USING
+                                rdf for <http://www.w3.org/1999/02/22-rdf-syntax-ns#>,
+                                rss for <http://purl.org/rss/1.0/>));
+
+     my $res = $ua->request($req);
+
+DESCRIPTION
+    Apache::XPointer is a mod_perl handler to address XML fragments using
+    the HTTP 1.1 *Range* header and the RDF Data Query Language (RDQL), as
+    described in the paper : *A Semantic Web Resource Protocol: XPointer and
+    HTTP*.
+
+    Additionally, the handler may also be configured to recognize a
+    conventional CGI parameter as a valid range identifier.
+
+    If no 'range' property is found, then the original document is sent
+    unaltered.
+
+IMPORTANT
+    This package is a base class and not expected to be invoked directly.
+    Please use one of the RDQL parser-specific handlers instead.
+
+SUPPORTED PARSERS
+  RDFStore
+    Consult Apache::XPointer::RDQL::RDFStore
+
+MOD_PERL COMPATIBILITY
+    This handler will work with both mod_perl 1.x and mod_perl 2.x; it works
+    better in 1.x because it supports Apache::Request which does a better
+    job of parsing CGI parameters.
+
+VERSION
+    1.0
+
+DATE
+    $Date: 2004/11/15 14:42:10 $
+
+AUTHOR
+    Aaron Straup Cope <ascope@cpan.org>
+
+SEE ALSO
+    Apache::XPointer
+
+    http://www.w3.org/Submission/RDQL/
+
+LICENSE
+    Copyright (c) 2004 Aaron Straup Cope. All rights reserved.
+
+    This is free software, you may use it and distribute it under the same
+    terms as Perl itself.
+
