@@ -1,10 +1,10 @@
-# $Id: Parser.pm,v 1.4 2004/11/15 05:13:45 asc Exp $
+# $Id: Parser.pm,v 1.6 2004/11/16 04:36:26 asc Exp $
 use strict;
 
 package Apache::XPointer::RDQL::Parser;
 use base qw (RDQL::Parser);
 
-$Apache::XPointer::RDQL::Parser::VERSION = '1.0';
+$Apache::XPointer::RDQL::Parser::VERSION = '1.1';
 
 =head1 NAME
 
@@ -36,6 +36,11 @@ Apache::XPointer::RDQL specific methods for RDQL::Parser.
 This pacakages subclasses I<RDQL::Parser> a defines the following helper methods :
 
 =cut
+
+use overload qq("") => sub {
+    my $self = shift;
+    return $self->query_string();
+};
 
 sub parse {
     my $self = shift;
@@ -111,11 +116,11 @@ sub lookup_namespaceURI {
 
 =head1 VERSION
 
-1.0
+1.1
 
 =head1 DATE
 
-$Date: 2004/11/15 05:13:45 $
+$Date: 2004/11/16 04:36:26 $
 
 =head1 AUTHOR
 

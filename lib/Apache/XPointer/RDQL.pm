@@ -1,11 +1,11 @@
 package Apache::XPointer::RDQL;
 use base qw (Apache::XPointer);
 
-$Apache::XPointer::RDQL::VERSION = '1.0';
+$Apache::XPointer::RDQL::VERSION = '1.1';
 
 =head1 NAME
 
-Apache::XPointer::RDQL - base class for addressing XML fragments using the RDF Data Query Language.
+Apache::XPointer::RDQL - mod_perl handler for addressing XML fragments using the RDF Data Query Language.
 
 =head1 SYNOPSIS
 
@@ -15,7 +15,7 @@ Apache::XPointer::RDQL - base class for addressing XML fragments using the RDF D
    SetHandler	perl-script
    PerlHandler	Apache::XPointer::RDQL::RDFStore
 
-   PerlSetVar   XPointerSendRangeAs  "XML"
+   PerlSetVar   XPointerSendRangeAs  "application/rdf+xml"
   </FilesMatch>
 
  </Directory>
@@ -34,20 +34,26 @@ Apache::XPointer::RDQL - base class for addressing XML fragments using the RDF D
                             rdf for <http://www.w3.org/1999/02/22-rdf-syntax-ns#>,
                             rss for <http://purl.org/rss/1.0/>));
 
+ $req->header("Accept" => qq(mulitpart/mixed));
+
  my $res = $ua->request($req);
 
 =head1 DESCRIPTION
 
-Apache::XPointer is a mod_perl handler to address XML fragments using
-the HTTP 1.1 I<Range> header and the RDF Data Query Language (RDQL), 
-as described in the paper : I<A Semantic Web Resource Protocol: XPointer
-and HTTP>.
+Apache::XPointer::RDQL::RDFStore is a mod_perl handler to address XML fragments using
+the HTTP 1.1 I<Range> and I<Accept> headers and the XPath scheme, as described
+in the paper : I<A Semantic Web Resource Protocol: XPointer and HTTP>.
 
 Additionally, the handler may also be configured to recognize a conventional
 CGI parameter as a valid range identifier.
 
 If no 'range' property is found, then the original document is
 sent unaltered.
+
+If an I<Accept> header is specified with no corresponding match, then the
+server will return (406) HTTP_NOT_ACCEPTABLE.
+
+Successful queries will return (206) HTTP_PARTIAL_CONTENT.
 
 =head1 IMPORTANT
 
@@ -62,9 +68,7 @@ Consult L<Apache::XPointer::RDQL::RDFStore>
 
 =head1 MOD_PERL COMPATIBILITY
 
-This handler will work with both mod_perl 1.x and mod_perl 2.x; it
-works better in 1.x because it supports Apache::Request which does
-a better job of parsing CGI parameters.
+This handler will work with both mod_perl 1.x and mod_perl 2.x.
 
 =cut
 
@@ -108,11 +112,11 @@ sub bind {
 
 =head1 VERSION
 
-1.0
+1.1
 
 =head1 DATE
 
-$Date: 2004/11/15 14:42:10 $
+$Date: 2004/11/16 04:33:33 $
 
 =head1 AUTHOR
 

@@ -1,10 +1,10 @@
-# $Id: RDFStore.pm,v 1.8 2004/11/15 14:42:10 asc Exp $
+# $Id: RDFStore.pm,v 1.9 2004/11/16 04:33:33 asc Exp $
 use strict;
 
 package Apache::XPointer::RDQL::RDFStore;
 use base qw (Apache::XPointer::RDQL);
 
-$Apache::XPointer::RDQL::RDFStore::VERSION = '1.0';
+$Apache::XPointer::RDQL::RDFStore::VERSION = '1.1';
 
 =head1 NAME
 
@@ -37,14 +37,15 @@ Apache::XPointer::RDQL::RDFStore - mod_perl handler to address XML fragments usi
                             rdf for <http://www.w3.org/1999/02/22-rdf-syntax-ns#>,
                             rss for <http://purl.org/rss/1.0/>));
 
+ $req->header("Accept" => "application/rdf+xml");
+
  my $res = $ua->request($req);
 
 =head1 DESCRIPTION
 
-Apache::XPointer is a mod_perl handler to address XML fragments using
-the HTTP 1.1 I<Range> header and the RDF Data Query Language (RDQL), 
-as described in the paper : I<A Semantic Web Resource Protocol: XPointer
-and HTTP>.
+Apache::XPointer::RDQL::RDFStore is a mod_perl handler to address XML fragments
+using the HTTP 1.1 I<Range> and I<Accept> headers and the XPath scheme,
+as described in the paper : I<A Semantic Web Resource Protocol: XPointer and HTTP>.
 
 Additionally, the handler may also be configured to recognize a conventional
 CGI parameter as a valid range identifier.
@@ -52,30 +53,20 @@ CGI parameter as a valid range identifier.
 If no 'range' property is found, then the original document is
 sent unaltered.
 
+If an I<Accept> header is specified with no corresponding match, then the
+server will return (406) HTTP_NOT_ACCEPTABLE.
+
+Successful queries will return (206) HTTP_PARTIAL_CONTENT.
+
 =head1 OPTIONS
-
-=head2 XPointerAllowCGIRange
-
-If set to B<On> then the handler will check the CGI parameters sent with the
-request for an argument defining an XPath range.
-
-CGI parameters are checked only if no HTTP Range header is present.
-
-Case insensitive.
-
-=head2 XPointerCGIRangeParam
-
-The name of the CGI parameter to check for an XPath range.
-
-Default is B<range>
 
 =head2 XPointerSendRangeAs
 
+Return matches as one of the following content-types :
+
 =over 4
 
-=item * B<multi-part>
-
-Returns matches as type I<multipart/mixed> :
+=item * B<multipart/mixed>
 
  --match
  Content-type: text/xml; charset=UTF-8
@@ -105,9 +96,7 @@ Returns matches as type I<multipart/mixed> :
 
  --match--
 
-=item * B<XML>
-
-Return matches as type I<application/rdf+xml> :
+=item * B<application/xml+rdf>
 
  <rdf:RDF
       xmlns:rdf='http://www.w3.org/1999/02/22-rdf-syntax-ns#'
@@ -135,13 +124,32 @@ Return matches as type I<application/rdf+xml> :
 
 =back
 
-Default is B<XML>; case-insensitive.
+I<Required>
+
+=head2 XPointerAllowCGI
+
+If set to B<On> then the handler will check for CGI parameters as well
+as HTTP headers. CGI parameters are checked only if no matching HTTP
+header is present.
+
+Case insensitive.
+
+=head2 XPointerCGIRangeParam
+
+The name of the CGI parameter to check for an RDQL range.
+
+Default is B<range>
+
+=head2 XPointerCGIAcceptParam
+
+The name of the CGI parameter to list one or more acceptable
+content types for a response.
+
+Default is B<accept>
 
 =head1 MOD_PERL COMPATIBILITY
 
-This handler will work with both mod_perl 1.x and mod_perl 2.x; it
-works better in 1.x because it supports Apache::Request which does
-a better job of parsing CGI parameters.
+This handler will work with both mod_perl 1.x and mod_perl 2.x.
 
 =cut
 
@@ -149,10 +157,26 @@ use DBI;
 use RDFStore::Model;
 use RDFStore::NodeFactory;
 
-sub range {
+sub send_as {
+    my $pkg = shift;
+    my $as  = shift;
+
+    if ($as eq "multipart/mixed") {
+	return "send_multipart";
+    }
+
+    elsif ($as eq "application/rdf+xml") {
+	return "send_xml";
+    } 
+
+    else {
+	return undef;
+    }
+}
+
+sub query {
     my $pkg    = shift;
     my $apache = shift;
-    my $ns     = shift;
     my $query  = shift;
 
     my $bind = $pkg->bind($query);
@@ -170,7 +194,7 @@ sub range {
     }
 
     eval {
-	$sth = $dbh->prepare($query->query_string());
+	$sth = $dbh->prepare($query);
     };
 
     if ($@) {
@@ -194,34 +218,10 @@ sub range {
 	    result  => $sth};
 }
 
-sub send_results {
-    my $pkg    = shift;
-    my $apache = shift;
-    my $res    = shift;
-    
-    if ($apache->dir_config("XPointerSendRangeAs") =~ /^multi-?part$/i) {
-	$pkg->send_multipart($apache,$res);
-    }
-    
-    else {
-	$pkg->send_xml($apache,$res);
-    }
-
-    return 1;
-}
-
 sub send_multipart {
     my $pkg    = shift;
     my $apache = shift;
     my $res    = shift;
-
-    $apache->content_type(qq(multipart/mixed; boundary="match"));
-
-    if (! $pkg->_mp2()) {
-	$apache->send_http_header();
-    }
-
-    #
 
     my $factory = RDFStore::NodeFactory->new();
     
@@ -287,15 +287,6 @@ sub send_xml {
 	$model->add($factory->createStatement($seq,$li,$result));
     }
 
-    $pkg->_header_out($apache,"Content-Encoding","UTF-8");
-    $apache->content_type(qq(application/rdf+xml));
-
-    if (! $pkg->_mp2()) {
-	$apache->send_http_header();
-    }
-
-    #
-
     $apache->print($model->serialize());
     return 1;
 }
@@ -313,11 +304,11 @@ sub _fatal {
 
 =head1 VERSION
 
-1.0
+1.1
 
 =head1 DATE
 
-$Date: 2004/11/15 14:42:10 $
+$Date: 2004/11/16 04:33:33 $
 
 =head1 AUTHOR
 
